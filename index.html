@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  html{color-scheme:dark}
+  body{margin:0}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+</style>
+<title>Agent Bullpen</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --ground:#151120;
+    --cabinet:#1d1829;
+    --panel:#241e33;
+    --raise:#2e2740;
+    --line:#3b3252;
+    --line-soft:#2b2440;
+    --ink:#ece6f7;
+    --ink-dim:#a397bd;
+    --ink-faint:#6f6489;
+    --marigold:#f3ac3c;
+    --work:#57d39c;
+    --read:#54bdda;
+    --run:#f3ac3c;
+    --block:#e4635e;
+    --idle:#6f6489;
+    --done:#b382ea;
+  }
+  html{box-sizing:border-box;height:100%}
+  *,*::before,*::after{box-sizing:inherit}
+  body{
+    height:100%;
+    margin:0;
+    background:var(--ground);
+    color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;color:inherit}
+  .app{
+    height:100%;
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr) auto;
+    gap:10px;
+    padding-block:12px;
+    padding-left:16px;
+    padding-right:16px;
+    max-width:1500px;
+    margin:0 auto;
+  }
+
+  /* top bar */
+  .topbar{
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    padding:10px 14px;
+    background:var(--cabinet);
+    border:1px solid var(--line-soft);
+  }
+  .brand{display:flex;flex-direction:column;gap:2px;margin-right:auto}
+  .brand h1{
+    margin:0;
+    font-family:"Silkscreen",monospace;
+    font-size:17px;font-weight:700;letter-spacing:.06em;
+    color:var(--ink);
+  }
+  .brand .sub{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .counts{display:flex;gap:8px;flex-wrap:wrap}
+  .count{
+    display:flex;align-items:baseline;gap:6px;
+    padding:5px 9px;
+    background:var(--panel);
+    border:1px solid var(--line-soft);
+    border-left:3px solid var(--c,var(--line));
+  }
+  .count b{font-family:"IBM Plex Mono",monospace;font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+  .count span{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-dim)}
+  .tools{display:flex;gap:6px;flex-wrap:wrap}
+  .btn{
+    background:var(--panel);
+    border:1px solid var(--line);
+    padding:7px 11px;
+    font-family:"Silkscreen",monospace;font-size:10px;letter-spacing:.04em;
+    cursor:pointer;
+  }
+  .btn:hover{background:var(--raise);border-color:var(--marigold);color:var(--marigold)}
+  .btn:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
+  .btn[aria-pressed="true"]{background:var(--marigold);border-color:var(--marigold);color:#23190a}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.accent{border-color:var(--marigold);color:var(--marigold)}
+  .btn.danger:hover{border-color:var(--block);color:var(--block)}
+
+  /* stage */
+  .stage{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 336px;
+    gap:10px;
+    min-height:0;
+  }
+  .floorwrap{
+    position:relative;
+    background:var(--cabinet);
+    border:1px solid var(--line-soft);
+    padding:10px;
+    display:flex;align-items:center;justify-content:center;
+    min-height:0;
+  }
+  canvas{
+    display:block;
+    width:100%;
+    max-width:100%;
+    max-height:100%;
+    aspect-ratio:8/5;
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+    cursor:pointer;
+  }
+  .hint{
+    position:absolute;left:14px;bottom:12px;
+    font-family:"IBM Plex Mono",monospace;font-size:10px;
+    color:var(--ink-faint);letter-spacing:.04em;
+    pointer-events:none;
+  }
+
+  /* panel */
+  .panel{
+    background:var(--cabinet);
+    border:1px solid var(--line-soft);
+    display:grid;
+    grid-template-rows:auto auto minmax(80px,1fr) auto;
+    min-height:0;
+  }
+  .pad{padding:12px 14px}
+  .divider{border-top:1px solid var(--line-soft)}
+  .eyebrow{
+    font-family:"Silkscreen",monospace;font-size:9.5px;letter-spacing:.09em;
+    color:var(--ink-faint);margin-bottom:8px;
+  }
+  .whois{display:flex;align-items:center;gap:9px}
+  .chip{width:11px;height:11px;flex:none;background:var(--idle);box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+  .whois h2{margin:0;font-size:16px;font-weight:600;letter-spacing:.01em}
+  .whois .role{
+    margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:10px;
+    color:var(--ink-faint);letter-spacing:.06em;text-transform:uppercase;
+  }
+  .task{
+    margin:9px 0 0;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;
+    color:var(--ink-dim);
+  }
+  .task b{color:var(--ink);font-weight:500}
+  .statusline{
+    display:flex;align-items:center;gap:8px;margin-top:10px;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;
+  }
+  .pill{
+    padding:2px 7px;border:1px solid currentColor;
+    font-family:"Silkscreen",monospace;font-size:9px;letter-spacing:.05em;
+  }
+  .elapsed{margin-left:auto;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+  .bar{height:4px;background:var(--line-soft);margin-top:10px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--work);transition:width .18s linear}
+  .ask{
+    margin-top:11px;padding:10px;
+    background:rgba(243,172,60,.09);
+    border:1px solid rgba(243,172,60,.4);
+  }
+  .ask p{margin:0 0 9px;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:#f7cd8b}
+  .ask code{background:rgba(0,0,0,.3);padding:1px 4px;color:var(--marigold)}
+  .ask .row{display:flex;gap:6px}
+
+  .log{overflow-y:auto;min-height:0;padding:0 14px 12px}
+  .log ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column-reverse;gap:1px}
+  .log li{
+    display:grid;grid-template-columns:44px 1fr;gap:8px;
+    padding:3px 0;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .log time{color:var(--ink-faint);font-variant-numeric:tabular-nums}
+  .log .msg{color:var(--ink-dim);overflow-wrap:anywhere}
+  .log .msg b{color:var(--ink);font-weight:500}
+
+  .roster{padding:10px 8px 12px}
+  .roster ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:3px}
+  .roster button{
+    width:100%;display:flex;align-items:center;gap:7px;
+    background:none;border:1px solid transparent;
+    padding:5px 6px;text-align:left;cursor:pointer;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;
+  }
+  .roster button:hover{background:var(--panel)}
+  .roster button[aria-current="true"]{background:var(--panel);border-color:var(--line)}
+  .roster .dot{width:8px;height:8px;flex:none}
+  .roster .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ticker */
+  .ticker{
+    display:flex;align-items:center;gap:12px;
+    padding:8px 14px;
+    background:var(--cabinet);
+    border:1px solid var(--line-soft);
+    font-family:"IBM Plex Mono",monospace;font-size:11px;
+    overflow:hidden;
+  }
+  .ticker .src{
+    flex:none;display:flex;align-items:center;gap:6px;
+    font-family:"Silkscreen",monospace;font-size:9px;letter-spacing:.06em;
+    color:var(--ink-faint);
+    padding-right:12px;border-right:1px solid var(--line-soft);
+  }
+  .ticker .src i{width:7px;height:7px;background:var(--work);display:block;animation:blip 1.6s steps(2,end) infinite}
+  @keyframes blip{50%{opacity:.25}}
+  .ticker .feed{color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ticker .feed b{color:var(--ink);font-weight:500}
+  .legend{flex:none;display:flex;gap:10px;margin-left:auto}
+  .legend span{display:flex;align-items:center;gap:5px;color:var(--ink-faint);font-size:10px;letter-spacing:.03em}
+  .legend i{width:7px;height:7px;display:block}
+
+  @media (prefers-reduced-motion: reduce){
+    .ticker .src i{animation:none}
+    .bar i{transition:none}
+  }
+  @media (max-width: 1000px){
+    html,body{height:auto}
+    .app{height:auto;min-height:100%}
+    .stage{grid-template-columns:1fr;grid-template-rows:auto auto}
+    .panel{grid-template-rows:auto auto auto auto}
+    .log{max-height:210px;padding-top:2px}
+    .legend{display:none}
+    .hint{display:none}
+    .ticker .feed{white-space:normal}
+  }
+  @media (max-width: 620px){
+    .app{padding-left:12px;padding-right:12px}
+    .topbar{gap:10px}
+    .counts{order:3;width:100%}
+    .roster ul{grid-template-columns:1fr}
+  }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>AGENT BULLPEN</h1>
+      <div class="sub">6 desks &middot; claude code session view</div>
+    </div>
+    <div class="counts" id="counts"></div>
+    <div class="tools">
+      <button class="btn" id="pause" aria-pressed="false">Pause</button>
+      <button class="btn" id="speed">Speed 1&times;</button>
+      <button class="btn accent" id="hire">Hire agent</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="floorwrap">
+      <canvas id="floor" width="1280" height="800" role="img"
+        aria-label="Top-down pixel-art office floor. Each running agent is a character at a desk; the roster list beside it carries the same information as text."></canvas>
+      <div class="hint">click a worker to inspect &middot; raised hand = waiting on you</div>
+    </div>
+
+    <aside class="panel">
+      <section class="pad" id="detail"></section>
+      <div class="divider"></div>
+      <div class="pad" style="padding-bottom:6px"><div class="eyebrow">ACTIVITY</div></div>
+      <div class="log" id="log"><ol></ol></div>
+      <div class="divider"></div>
+      <section class="roster" id="roster" aria-label="Agent roster"></section>
+    </aside>
+  </main>
+
+  <footer class="ticker">
+    <div class="src"><i></i> SIMULATED STREAM</div>
+    <div class="feed" id="feed">&mdash;</div>
+    <div class="legend">
+      <span><i style="background:var(--work)"></i>writing</span>
+      <span><i style="background:var(--read)"></i>reading</span>
+      <span><i style="background:var(--run)"></i>waiting on you</span>
+      <span><i style="background:var(--block)"></i>error</span>
+      <span><i style="background:var(--idle)"></i>idle</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ==================================================================
+   AGENT BULLPEN
+   A floor of desks where every running coding agent is a worker.
+
+   The office is a *view*. Everything it draws comes from `applyEvent`,
+   which takes events shaped like Claude Code's hook payloads:
+
+     { ts, sessionId, type, tool, detail }
+     type: SessionStart | PreToolUse | PostToolUse | Notification
+           | PermissionRequest | SubagentStart | SubagentStop | Stop
+
+   Below, a simulator produces that stream. To drive it from real
+   sessions instead, delete the simulator and call connectLive() with a
+   socket that forwards your hook script's stdin.
+   ================================================================== */
+
+const C = {
+  work:'#57d39c', read:'#54bdda', run:'#f3ac3c', block:'#e4635e',
+  idle:'#6f6489', done:'#b382ea', think:'#8d7fb0'
+};
+
+/* Activity vocabulary: tool name -> how it looks on the floor. */
+const ACT = {
+  idle:    {c:C.idle,  label:'IDLE',     verb:'is idle'},
+  reading: {c:C.read,  label:'READING',  verb:'is reading'},
+  coding:  {c:C.work,  label:'WRITING',  verb:'is editing'},
+  running: {c:C.run,   label:'RUNNING',  verb:'is running'},
+  research:{c:C.read,  label:'SEARCHING',verb:'is searching'},
+  thinking:{c:C.think, label:'THINKING', verb:'is thinking'},
+  waiting: {c:C.run,   label:'NEEDS YOU',verb:'is waiting on you'},
+  error:   {c:C.block, label:'ERROR',    verb:'hit an error'},
+  done:    {c:C.done,  label:'DONE',     verb:'finished'},
+  away:    {c:C.idle,  label:'AWAY',     verb:'stepped away'}
+};
+const TOOL_ACT = {
+  Read:'reading', Grep:'reading', Glob:'reading', NotebookRead:'reading',
+  Edit:'coding', Write:'coding', MultiEdit:'coding', NotebookEdit:'coding',
+  Bash:'running', BashOutput:'running',
+  WebSearch:'research', WebFetch:'research',
+  Task:'thinking'
+};
+
+/* world geometry (in pixel-art units; canvas is 320x200 at 4x) */
+const W = 320, H = 200, S = 4;
+const DESKS = [
+  {x:24,  y:62},  {x:116, y:62},  {x:208, y:62},
+  {x:24,  y:140}, {x:116, y:140}, {x:208, y:140}
+];
+const DOOR = {x:-16, y:112};
+const CORRIDOR_Y = 112;
+const COOLER = {x:288, y:96};
+
+/* sprites: 12x16 cell maps
+   H hair  F skin  E eye  S shirt  A arm  P pants  B shoe  . clear */
+const SPR = {
+  down:[[
+    '....HHHH....','..HHHHHHHH..','..HHHHHHHH..','..HFFFFFFH..',
+    '..HFEFFEFH..','..HFFFFFFH..','...FFFFFF...','....FFFF....',
+    '..SSSSSSSS..','.ASSSSSSSSA.','.ASSSSSSSSA.','.ASSSSSSSSA.',
+    '..SSSSSSSS..','..PPPPPPPP..','..PPP..PPP..','..BB....BB..'
+  ],[
+    '....HHHH....','..HHHHHHHH..','..HHHHHHHH..','..HFFFFFFH..',
+    '..HFEFFEFH..','..HFFFFFFH..','...FFFFFF...','....FFFF....',
+    '..SSSSSSSS..','.ASSSSSSSSA.','.ASSSSSSSSA.','.ASSSSSSSSA.',
+    '..SSSSSSSS..','..PPPPPPPP..','..PPPPPPPP..','...BB.BB....'
+  ]],
+  up:[[
+    '....HHHH....','..HHHHHHHH..','..HHHHHHHH..','..HHHHHHHH..',
+    '..HHHHHHHH..','..HHHHHHHH..','...HHHHHH...','....FFFF....',
+    '..SSSSSSSS..','.ASSSSSSSSA.','.ASSSSSSSSA.','.ASSSSSSSSA.',
+    '..SSSSSSSS..','..PPPPPPPP..','..PPP..PPP..','..BB....BB..'
+  ],[
+    '....HHHH....','..HHHHHHHH..','..HHHHHHHH..','..HHHHHHHH..',
+    '..HHHHHHHH..','..HHHHHHHH..','...HHHHHH...','....FFFF....',
+    '..SSSSSSSS..','.ASSSSSSSSA.','.ASSSSSSSSA.','.ASSSSSSSSA.',
+    '..SSSSSSSS..','..PPPPPPPP..','..PPPPPPPP..','...BB.BB....'
+  ]],
+  side:[[
+    '....HHHH....','...HHHHHHH..','...HHHHHHH..','...HFFFFFH..',
+    '...HFEFFFH..','...HFFFFFH..','....FFFFF...','.....FFF....',
+    '...SSSSSS...','...SSSSSSA..','...SSSSSSA..','...SSSSSS...',
+    '...PPPPPP...','...PPPPPP...','...PP..PP...','..BBB..BB...'
+  ],[
+    '....HHHH....','...HHHHHHH..','...HHHHHHH..','...HFFFFFH..',
+    '...HFEFFFH..','...HFFFFFH..','....FFFFF...','.....FFF....',
+    '...SSSSSS...','...SSSSSSA..','...SSSSSSA..','...SSSSSS...',
+    '...PPPPPP...','...PPPPPP...','...PPPPPP...','....BBBB....'
+  ]]
+};
+
+const LOOKS = [
+  {H:'#3a2a1f',F:'#e0a882',S:'#4f7fd4',P:'#33304a',B:'#241f33'},
+  {H:'#1f1a26',F:'#8a5c3c',S:'#d4604f',P:'#2b3a4a',B:'#241f33'},
+  {H:'#8c4b2a',F:'#f0c6a4',S:'#54a87a',P:'#3a3350',B:'#241f33'},
+  {H:'#5b3f7a',F:'#c98f66',S:'#e0b64a',P:'#2f2b45',B:'#241f33'},
+  {H:'#d8c98a',F:'#f0cdae',S:'#7a6fd0',P:'#343048',B:'#241f33'},
+  {H:'#2a2a33',F:'#6e452c',S:'#3fa9b8',P:'#3b3352',B:'#241f33'},
+  {H:'#6b4a2f',F:'#eab896',S:'#c97ab5',P:'#2e2a42',B:'#241f33'},
+  {H:'#4a3050',F:'#d69a70',S:'#9aa3b5',P:'#333050',B:'#241f33'}
+];
+
+/* task material */
+const NAMES = ['Ada','Byte','Cog','Dot','Echo','Flint','Grit','Hex','Iris','Juno','Kilo','Mox'];
+const ROLES = ['engineer','engineer','engineer','reviewer','researcher'];
+const TASKS = [
+  {t:'refactor auth middleware',       r:'api/src/auth'},
+  {t:'fix flaky checkout e2e specs',   r:'web/e2e'},
+  {t:'migrate to Postgres 16',         r:'infra/db'},
+  {t:'audit deps for advisories',      r:'./'},
+  {t:'port dashboard to React 19',     r:'web/src/dash'},
+  {t:'write v2.4 changelog',           r:'docs/'},
+  {t:'cut p95 latency on /search',     r:'api/src/search'},
+  {t:'add idempotency keys to webhooks',r:'api/src/hooks'},
+  {t:'delete the legacy billing shim', r:'api/src/billing'},
+  {t:'backfill types in the sdk',      r:'packages/sdk'}
+];
+const STEPS = {
+  reading:['{r}','{f}','pattern "{q}"','call sites of {q}','diff against main'],
+  coding: ['{f}','tests in {f}','patch for {f}'],
+  running:['npm test -- {q}','tsc --noEmit','pytest -k {q}','npm run lint','git rebase origin/main'],
+  research:['docs for {q}','the migration guide','the v16 release notes'],
+  thinking:['planning the change','weighing two approaches','re-reading the ticket']
+};
+const FILES = ['index.ts','handler.go','schema.sql','routes.tsx','client.py','config.yml','Session.tsx','pool.rs','worker.ts','migrate.sql'];
+const QUERIES = ['createSession','retryPolicy','useAuth','TokenBucket','flush()','CHECK constraint','legacy_shim'];
+const ASKS = [
+  {cmd:'rm -rf node_modules && npm ci', why:'Bash wants to delete a directory'},
+  {cmd:'git push --force origin hotfix', why:'Bash wants to force-push'},
+  {cmd:'edit ~/.zshrc', why:'Write outside the working directory'},
+  {cmd:'psql -c "DROP TABLE sessions_old"', why:'Bash wants to drop a table'},
+  {cmd:'gh pr merge 481 --squash', why:'Bash wants to merge a pull request'},
+  {cmd:'curl -X POST api.stripe.com/v1/refunds', why:'WebFetch wants to POST to a live API'}
+];
+const pick = a => a[(Math.random()*a.length)|0];
+const fill = s => s.replace('{f}',pick(FILES)).replace('{q}',pick(QUERIES));
+
+/* ===== state ===== */
+let agents = [], selectedId = null, nextId = 1, paused = false, speed = 1;
+let feedLine = 'floor opened — 3 sessions attached';
+const clock = () => new Date();
+const hhmm = d => String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+
+function freeDesk(){
+  const used = new Set(agents.filter(a=>a.desk>=0).map(a=>a.desk));
+  for(let i=0;i<DESKS.length;i++) if(!used.has(i)) return i;
+  return -1;
+}
+
+function makeAgent(opts={}){
+  const desk = opts.desk ?? freeDesk();
+  if(desk < 0) return null;
+  const job = pick(TASKS);
+  const a = {
+    id: 'ses_'+(nextId++),
+    name: opts.name || pick(NAMES.filter(n=>!agents.some(x=>x.name===n))) || ('Node'+nextId),
+    role: opts.role || pick(ROLES),
+    look: LOOKS[(nextId*3)%LOOKS.length],
+    desk,
+    task: job.t, repo: job.r,
+    x: DOOR.x, y: DOOR.y, face:'side', flip:false, frame:0, walkT:0,
+    path: [], seated:false,
+    act:'thinking', actLabel:'settling in', actT:0, actDur:2.5,
+    ask:null, sub:null, isSub:!!opts.isSub, host:opts.host||null,
+    started: clock(), log:[], screenJitter:0, done:0, total:6+((Math.random()*6)|0)
+  };
+  const d = DESKS[desk];
+  a.path = [{x:14,y:CORRIDOR_Y},{x:d.x+22,y:CORRIDOR_Y},{x:d.x+22,y:d.y+9}];
+  agents.push(a);
+  emit({type:'SessionStart', sessionId:a.id, detail:a.task});
+  return a;
+}
+
+/* ===== event adapter =====
+   Single entry point. Everything the floor shows is a fold over this. */
+function emit(e){ e.ts = e.ts || Date.now(); applyEvent(e); }
+
+function applyEvent(e){
+  const a = agents.find(x => x.id === e.sessionId);
+  if(!a) return;
+  switch(e.type){
+    case 'SessionStart':
+      note(a, `<b>${a.name}</b> attached &mdash; ${e.detail}`); break;
+    case 'PreToolUse':
+      a.act = TOOL_ACT[e.tool] || 'thinking';
+      a.actLabel = e.detail;
+      a.tool = e.tool;
+      note(a, `<b>${e.tool}</b> ${e.detail}`); break;
+    case 'PostToolUse':
+      a.done++;
+      if(e.detail) note(a, e.detail);
+      break;
+    case 'PermissionRequest':
+      a.act = 'waiting'; a.ask = e.detail;
+      a.actLabel = 'waiting for approval';
+      note(a, `<b style="color:${C.run}">needs approval</b> &mdash; ${e.detail.why}`);
+      ping(`<b>${a.name}</b> is waiting on you &mdash; ${e.detail.why}`);
+      break;
+    case 'Notification':
+      a.act = 'error'; a.actLabel = e.detail;
+      note(a, `<b style="color:${C.block}">${e.detail}</b>`); break;
+    case 'SubagentStart':
+      note(a, `spawned sub-agent <b>${e.detail}</b>`); break;
+    case 'SubagentStop':
+      note(a, `sub-agent <b>${e.detail}</b> reported back`); break;
+    case 'Stop':
+      a.act = 'done'; a.actLabel = 'task complete';
+      note(a, `<b style="color:${C.done}">finished</b> &mdash; ${a.task}`);
+      ping(`<b>${a.name}</b> finished &mdash; ${a.task}`);
+      break;
+  }
+  paint();
+}
+
+function note(a, html){
+  a.log.push({t:clock(), html});
+  if(a.log.length > 60) a.log.shift();
+  ping(html.replace(/^<b>/, `<b>${a.name} &middot; `));
+}
+function ping(html){ feedLine = html; }
+
+/* Live wiring, for when you serve this yourself:
+     connectLive('ws://localhost:4477')
+   with a hook script POSTing each event JSON to that socket. */
+function connectLive(url){
+  const ws = new WebSocket(url);
+  ws.onmessage = m => { try{ applyEvent(JSON.parse(m.data)); }catch(_){} };
+  return ws;
+}
+
+/* ===== simulation ===== */
+function nextStep(a){
+  if(a.done >= a.total){ emit({type:'Stop', sessionId:a.id}); a.actDur = 6; return; }
+  const roll = Math.random();
+  if(roll < 0.06 && !a.isSub && !a.sub){
+    const sub = makeAgent({isSub:true, host:a.id, role:'sub-agent', desk:freeDesk()});
+    if(sub){ a.sub = sub.id; sub.total = 3; emit({type:'SubagentStart', sessionId:a.id, detail:sub.name}); }
+  }
+  if(roll > 0.92){
+    emit({type:'PermissionRequest', sessionId:a.id, detail:pick(ASKS)});
+    return;
+  }
+  if(roll > 0.88){
+    emit({type:'Notification', sessionId:a.id, detail:'2 tests failed in '+pick(FILES)});
+    a.actDur = 2.4; return;
+  }
+  const kind = pick(['reading','reading','coding','coding','running','research','thinking']);
+  emit({type:'PreToolUse', sessionId:a.id,
+        tool: Object.keys(TOOL_ACT).find(k => TOOL_ACT[k]===kind) || 'Read',
+        detail: fill(pick(STEPS[kind])).replace('{r}', a.repo)});
+  a.actDur = 1.6 + Math.random()*3.2;
+}
+
+function step(dt){
+  for(const a of agents.slice()){
+    /* walking */
+    if(a.path.length){
+      const tgt = a.path[0];
+      const dx = tgt.x - a.x, dy = tgt.y - a.y;
+      const dist = Math.hypot(dx,dy), sp = 26*dt;
+      if(dist < sp){ a.x = tgt.x; a.y = tgt.y; a.path.shift();
+        if(!a.path.length){
+          if(a.leaving){ agents = agents.filter(z=>z!==a); if(selectedId===a.id) selectedId=null; paint(); continue; }
+          a.seated = true; a.face='up'; a.actT = 0; a.actDur = 0.6;
+        }
+      } else {
+        a.x += dx/dist*sp; a.y += dy/dist*sp;
+        a.face = Math.abs(dx) > Math.abs(dy) ? 'side' : (dy>0?'down':'up');
+        if(a.face==='side') a.flip = dx < 0;
+        a.walkT += dt*7; a.frame = ((a.walkT|0)%2);
+      }
+      continue;
+    }
+    if(!a.seated) continue;
+    if(a.act === 'waiting') continue;   /* frozen until you answer */
+
+    a.actT += dt;
+    a.screenJitter = (a.screenJitter + dt*14) % 100;
+
+    if(a.act === 'done' && a.actT > a.actDur){
+      const job = pick(TASKS);
+      if(a.isSub){
+        const host = agents.find(z=>z.id===a.host);
+        if(host){ host.sub = null; emit({type:'SubagentStop', sessionId:host.id, detail:a.name}); }
+        a.leaving = true; a.seated = false;
+        a.path = [{x:a.x, y:CORRIDOR_Y},{x:DOOR.x, y:DOOR.y}];
+        continue;
+      }
+      a.task = job.t; a.repo = job.r; a.done = 0; a.total = 6+((Math.random()*6)|0);
+      a.started = clock();
+      note(a, `picked up next ticket &mdash; <b>${a.task}</b>`);
+      a.actT = 0; nextStep(a); continue;
+    }
+    if(a.actT > a.actDur && a.act !== 'done'){
+      if(a.act !== 'thinking' && a.act !== 'error')
+        emit({type:'PostToolUse', sessionId:a.id, detail:''});
+      a.actT = 0; nextStep(a);
+    }
+  }
+}
+
+/* ===== rendering ===== */
+const cv = document.getElementById('floor');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+function px(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
+function drawSprite(map, x, y, pal, flip, rows){
+  const n = rows || map.length;
+  for(let r=0;r<n;r++){
+    const line = map[r];
+    for(let c=0;c<line.length;c++){
+      const ch = line[c];
+      if(ch === '.') continue;
+      const col = ch==='E' ? '#241c30' : pal[ch] || pal.F;
+      px(x + (flip ? 11-c : c), y + r, 1, 1, col);
+    }
+  }
+}
+
+function drawRoom(t){
+  /* carpet */
+  px(0,0,W,H,'#2a2438');
+  for(let y=44;y<H;y+=4) for(let x=0;x<W;x+=4)
+    if(((x>>2)+(y>>2))%2===0) px(x,y,4,4,'#2d2740');
+  /* back wall */
+  px(0,0,W,44,'#3a3150');
+  px(0,40,W,4,'#26203a');
+  px(0,0,W,3,'#463a60');
+  /* windows with night sky */
+  for(const wx of [40,150,236]){
+    px(wx-2,10,52,26,'#221c33');
+    px(wx,12,48,22,'#12203a');
+    for(let i=0;i<9;i++){
+      const sx = wx+3+((i*13)%44), sy = 14+((i*7)%18);
+      px(sx,sy,1,1, i%3 ? '#5d7ea8' : '#c8d8ee');
+    }
+    px(wx+23,12,2,22,'#221c33'); px(wx,22,48,2,'#221c33');
+    px(wx-2,34,52,3,'#4a3f66');
+  }
+  /* wall clock, tucked between the middle and right windows */
+  px(210,10,14,14,'#1d1829'); px(211,11,12,12,'#4a4068'); px(212,12,10,10,'#ded8ea');
+  px(217,13,1,1,'#8d83a8'); px(217,20,1,1,'#8d83a8');
+  px(213,16,1,1,'#8d83a8'); px(221,16,1,1,'#8d83a8');
+  const ang = t*0.5;
+  for(let i=1;i<=3;i++) px(217+Math.round(Math.cos(ang)*i), 16+Math.round(Math.sin(ang)*i),1,1,'#3a3150');
+  px(217,14,1,2,'#3a3150'); px(217,16,1,1,'#e4635e');
+  /* whiteboard, between the left and middle windows */
+  px(96,8,46,28,'#3f3559'); px(98,10,42,24,'#e6e1f0');
+  px(101,14,16,2,'#6f6489'); px(101,19,28,1,'#a79cc4'); px(101,22,20,1,'#a79cc4');
+  px(101,26,24,1,'#a79cc4');
+  px(124,25,14,7,'#f3ac3c'); px(126,27,9,1,'#3f3559'); px(126,29,6,1,'#3f3559');
+  /* door on the left */
+  px(0,96,5,34,'#4a3f66'); px(0,98,3,30,'#5c4a2f'); px(3,112,1,2,'#e0c070');
+  /* water cooler */
+  px(COOLER.x-4,COOLER.y-16,9,10,'#7fb8d8');
+  px(COOLER.x-3,COOLER.y-15,7,8,'#a8dcf0');
+  px(COOLER.x-4,COOLER.y-6,9,14,'#d8d4e4');
+  px(COOLER.x-2,COOLER.y-1,5,2,'#5a5570');
+  /* plants */
+  for(const p of [{x:8,y:180},{x:302,y:176},{x:300,y:52}]){
+    px(p.x-3,p.y,7,8,'#8a5a3a'); px(p.x-3,p.y,7,2,'#a06a46');
+    px(p.x-5,p.y-9,11,9,'#3f8a5a'); px(p.x-3,p.y-13,7,5,'#4da06a');
+    px(p.x-1,p.y-15,3,3,'#5cb87a');
+  }
+}
+
+function drawDesk(d, a, t){
+  const x = d.x, y = d.y;
+  if(!a){ px(x+21,y+20,14,7,'#332c4a'); px(x+21,y+20,14,2,'#413769'); px(x+26,y+27,4,3,'#2a2440'); }
+  px(x+3,y+12,50,4,'#1a1526');                     /* shadow */
+  px(x,y,56,12,'#6d4c33'); px(x,y,56,2,'#8a6242');  /* surface */
+  px(x,y+10,56,2,'#4e3624');
+  px(x+2,y+12,3,8,'#4e3624'); px(x+51,y+12,3,8,'#4e3624');
+  /* monitor, back to camera */
+  const lit = a ? ACT[a.act].c : '#3b3352';
+  px(x+16,y-15,24,16,'#241e33'); px(x+17,y-14,22,14,'#2f2842');
+  const glow = a && a.seated ? lit : '#3b3352';
+  px(x+18,y-13,20,12,glow);
+  ctx.globalAlpha = .55;
+  for(let i=0;i<6;i++) px(x+18, y-13+i*2, 20, 1, '#1d1829');
+  ctx.globalAlpha = 1;
+  if(a && a.seated && a.act!=='idle' && a.act!=='away'){
+    const j = ((a.screenJitter|0)%20);
+    px(x+19, y-12+((j%5)*2), 4+(j%9), 1, '#ffffff');
+  }
+  px(x+26,y-1,4,2,'#241e33'); px(x+23,y+1,10,1,'#241e33');
+  /* halo of screen light on the desk */
+  ctx.globalAlpha = .18; px(x+12,y,32,10,glow); ctx.globalAlpha = 1;
+  /* keyboard, mug, papers */
+  px(x+20,y+4,16,4,'#b9b3c8'); px(x+20,y+4,16,1,'#d6d1e2');
+  px(x+41,y+3,4,5,'#e0b64a'); px(x+45,y+4,1,2,'#e0b64a');
+  px(x+6,y+3,9,6,'#ded8ea'); px(x+7,y+5,7,1,'#a39bb8'); px(x+7,y+7,5,1,'#a39bb8');
+}
+
+function drawWorker(a, t){
+  const bob = (a.seated && (a.act==='coding'||a.act==='running')) ? ((t*8|0)%2) : 0;
+  const x = Math.round(a.x - 6), y = Math.round(a.y) - bob;
+  /* chair */
+  if(a.seated){ px(x-1,y+11,14,7,'#3a3150'); px(x-1,y+11,14,2,'#4a4068'); }
+  px(x+1,y+13,10,2,'#1a1526');
+  const map = SPR[a.face][a.frame];
+  drawSprite(map, x, y, a.look, a.flip, a.seated ? 13 : 16);
+  /* raised hand when waiting on you */
+  if(a.act === 'waiting'){
+    const up = ((t*3|0)%2);
+    px(x+10, y+6-up, 2, 5, a.look.F);
+    px(x+10, y+4-up, 2, 2, a.look.F);
+  }
+  /* bubble + nameplate float above the furniture, so queue them for last */
+  OVERLAY.push(() => drawTags(a, x, y, t));
+  if(a.act==='coding' && ((t*6|0)%3)===0){
+    px(x+13,y-4,1,1,C.work); px(x-2,y-6,1,1,C.work);
+  }
+}
+
+function drawTags(a, x, y, t){
+  const b = {x:x+2, y:y-22};
+  if(a.act==='waiting'){
+    px(b.x-1,b.y,9,10,'#241e33'); px(b.x,b.y+1,7,8,C.run);
+    px(b.x+3,b.y+2,1,4,'#241e33'); px(b.x+3,b.y+7,1,1,'#241e33');
+    px(b.x+2,b.y+10,2,2,'#241e33');
+  } else if(a.act==='thinking'){
+    const n = (t*2|0)%3;
+    px(b.x,b.y+3,9,6,'#241e33');
+    for(let i=0;i<=n;i++) px(b.x+1+i*3,b.y+5,2,2,'#cfc6e4');
+  } else if(a.act==='done'){
+    px(b.x-1,b.y,9,10,'#241e33'); px(b.x,b.y+1,7,8,C.done);
+    px(b.x+1,b.y+5,2,2,'#241e33'); px(b.x+3,b.y+6,2,2,'#241e33');
+    px(b.x+4,b.y+3,2,2,'#241e33'); px(b.x+5,b.y+2,1,2,'#241e33');
+  } else if(a.act==='error'){
+    px(b.x-1,b.y,9,10,'#241e33'); px(b.x,b.y+1,7,8,C.block);
+    px(b.x+1,b.y+2,1,1,'#241e33'); px(b.x+5,b.y+2,1,1,'#241e33');
+    px(b.x+2,b.y+4,3,1,'#241e33'); px(b.x+1,b.y+6,5,1,'#241e33');
+  }
+  /* nameplate */
+  const tag = a.name + (a.isSub ? ' · sub' : '');
+  ctx.font = '6px Silkscreen, monospace';
+  ctx.textBaseline = 'top';
+  const w = Math.ceil(ctx.measureText(tag).width);
+  const nx = Math.round(a.x - w/2 - 5), ny = y + (a.seated ? 15 : 17);
+  px(nx, ny, w+10, 9, 'rgba(20,16,32,.82)');
+  px(nx, ny, w+10, 1, 'rgba(255,255,255,.07)');
+  px(nx+2, ny+3, 3, 3, ACT[a.act].c);
+  ctx.fillStyle = a.id === selectedId ? '#f3ac3c' : '#d8d0ea';
+  ctx.fillText(tag, nx+7, ny+2);
+  if(a.id === selectedId){
+    ctx.strokeStyle = '#f3ac3c'; ctx.lineWidth = 1;
+    ctx.strokeRect(x-2.5, y-2.5, 17, (a.seated?16:19));
+  }
+}
+
+const OVERLAY = [];
+function render(t){
+  ctx.setTransform(S,0,0,S,0,0);
+  ctx.clearRect(0,0,W,H);
+  OVERLAY.length = 0;
+  drawRoom(t);
+  const items = [];
+  DESKS.forEach((d,i) => {
+    const a = agents.find(z => z.desk===i && z.seated);
+    items.push({y:d.y, f:() => drawDesk(d, a, t)});
+  });
+  agents.forEach(a => items.push({y:a.y+1, f:() => drawWorker(a, t)}));
+  items.sort((p,q) => p.y - q.y).forEach(o => o.f());
+  /* warm light pooling from the windows */
+  const g = ctx.createLinearGradient(0,30,0,120);
+  g.addColorStop(0,'rgba(243,172,60,.10)'); g.addColorStop(1,'rgba(243,172,60,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,30,W,90);
+  OVERLAY.forEach(f => f());
+  ctx.setTransform(1,0,0,1,0,0);
+}
+
+/* ===== panel ===== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function paint(){
+  /* counts */
+  const n = k => agents.filter(a => a.act===k).length;
+  const working = agents.filter(a => ['coding','reading','running','research','thinking'].includes(a.act)).length;
+  $('counts').innerHTML = [
+    ['ON FLOOR', agents.length, 'var(--line)'],
+    ['WORKING', working, C.work],
+    ['NEEDS YOU', n('waiting'), C.run],
+    ['ERRORS', n('error'), C.block]
+  ].map(([l,v,c]) => `<div class="count" style="--c:${c}"><b>${v}</b><span>${l}</span></div>`).join('');
+
+  /* detail */
+  const a = agents.find(x => x.id === selectedId);
+  const det = $('detail');
+  if(!a){
+    det.innerHTML = `<div class="eyebrow">NO ONE SELECTED</div>
+      <p class="task" style="margin:0">Click a worker on the floor, or pick a name from the roster below, to read their live session.</p>`;
+  } else {
+    const st = ACT[a.act];
+    const mins = Math.max(0, Math.round((Date.now() - a.started.getTime())/60000));
+    const prog = Math.min(100, Math.round(a.done/a.total*100));
+    det.innerHTML = `
+      <div class="eyebrow">${esc(a.id)}</div>
+      <div class="whois">
+        <span class="chip" style="background:${st.c}"></span>
+        <h2>${esc(a.name)}</h2>
+        <span class="role">${esc(a.role)}</span>
+      </div>
+      <p class="task"><b>${esc(a.task)}</b><br>${esc(a.repo)}</p>
+      <div class="statusline">
+        <span class="pill" style="color:${st.c}">${st.label}</span>
+        <span style="color:var(--ink-dim)">${esc(a.actLabel||'')}</span>
+        <span class="elapsed">${mins}m</span>
+      </div>
+      <div class="bar"><i style="width:${prog}%;background:${st.c}"></i></div>
+      ${a.ask ? `<div class="ask">
+        <p>${esc(a.ask.why)}<br><code>${esc(a.ask.cmd)}</code></p>
+        <div class="row">
+          <button class="btn accent" data-answer="allow">Approve</button>
+          <button class="btn danger" data-answer="deny">Deny</button>
+        </div></div>` : ''}
+      <div style="margin-top:11px"><button class="btn danger" data-send-home="1">Send home</button></div>`;
+  }
+
+  /* log */
+  const src = a ? a.log : agents.flatMap(x => x.log.map(l => ({...l, html:`<b>${x.name}</b> &middot; `+l.html}))).sort((p,q)=>p.t-q.t).slice(-40);
+  $('log').firstElementChild.innerHTML = src.slice(-40)
+    .map(l => `<li><time>${hhmm(l.t)}</time><span class="msg">${l.html}</span></li>`).join('');
+
+  /* roster */
+  $('roster').innerHTML = '<ul>' + agents.map(x => `
+    <li><button data-pick="${x.id}" aria-current="${x.id===selectedId}">
+      <span class="dot" style="background:${ACT[x.act].c}"></span>
+      <span class="nm">${esc(x.name)}</span>
+    </button></li>`).join('') + '</ul>';
+
+  $('feed').innerHTML = feedLine;
+}
+
+/* ===== interaction ===== */
+cv.addEventListener('click', ev => {
+  const r = cv.getBoundingClientRect();
+  const x = (ev.clientX - r.left) / r.width * W;
+  const y = (ev.clientY - r.top) / r.height * H;
+  let best = null, bd = 16;
+  for(const a of agents){
+    const d = Math.hypot(a.x - x, a.y + 8 - y);
+    if(d < bd){ bd = d; best = a; }
+  }
+  selectedId = best ? best.id : null;
+  paint();
+});
+
+document.addEventListener('click', ev => {
+  const pickBtn = ev.target.closest('[data-pick]');
+  if(pickBtn){ selectedId = pickBtn.dataset.pick; paint(); return; }
+
+  const ans = ev.target.closest('[data-answer]');
+  if(ans){
+    const a = agents.find(x => x.id === selectedId);
+    if(!a || !a.ask) return;
+    const allowed = ans.dataset.answer === 'allow';
+    note(a, allowed
+      ? `<b style="color:${C.work}">approved</b> &mdash; ${esc(a.ask.cmd)}`
+      : `<b style="color:${C.block}">denied</b> &mdash; ${esc(a.ask.cmd)}`);
+    a.ask = null; a.actT = 0; a.done += allowed ? 1 : 0;
+    a.act = allowed ? 'running' : 'thinking';
+    a.actLabel = allowed ? 'resuming' : 'finding another way';
+    a.actDur = 1.8;
+    paint(); return;
+  }
+
+  const home = ev.target.closest('[data-send-home]');
+  if(home){
+    const a = agents.find(x => x.id === selectedId);
+    if(!a) return;
+    note(a, `<b>${a.name}</b> signed off`);
+    a.leaving = true; a.seated = false; a.desk = -1;
+    a.path = [{x:a.x, y:CORRIDOR_Y},{x:DOOR.x, y:DOOR.y}];
+    paint();
+  }
+});
+
+$('pause').addEventListener('click', e => {
+  paused = !paused;
+  e.currentTarget.textContent = paused ? 'Resume' : 'Pause';
+  e.currentTarget.setAttribute('aria-pressed', String(paused));
+});
+$('speed').addEventListener('click', e => {
+  speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
+  e.currentTarget.textContent = 'Speed ' + speed + '×';
+});
+$('hire').addEventListener('click', () => {
+  const a = makeAgent();
+  if(!a){ ping('every desk is taken — send someone home first'); paint(); return; }
+  selectedId = a.id; paint();
+});
+
+/* ===== boot ===== */
+for(let i=0;i<3;i++){
+  const a = makeAgent({desk:i});
+  /* start them already at work, so the floor opens mid-shift */
+  a.path = []; a.seated = true; a.face = 'up';
+  a.x = DESKS[i].x + 22; a.y = DESKS[i].y + 9;
+  a.done = 1 + ((Math.random()*3)|0);
+  nextStep(a);
+}
+selectedId = agents[0].id;
+paint();
+
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now - last)/1000);
+  last = now;
+  if(!paused) step(dt * speed);
+  render(now/1000);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+setInterval(() => { if(!paused) paint(); }, 900);
+</script>
+
+</body>
+</html>
