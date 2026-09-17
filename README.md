@@ -1,6 +1,7 @@
 # Agent Bullpen
 
-**Six Claude Code agents, running for real, as an office floor you can watch and interrupt.**
+**A multi-agent control room — six Claude Code agents, running for real, as an
+office floor you can watch and interrupt.**
 
 <p align="center">
   <img src="docs/bullpen.gif" width="720" alt="Pixel-art office floor: four agents typing at desks, one standing up with an amber exclamation mark over its head, then sitting back down once the request is approved.">
@@ -29,8 +30,8 @@ the format, and the reason the same idea keeps getting rebuilt.
 ## Run it
 
 ```sh
-git clone https://github.com/Devansh63/agent-bullpen.git
-node agent-bullpen/server/orchestrator.mjs --repo "$(pwd)" --desks 3
+git clone https://github.com/Devansh63/multi-agent-control-room.git
+node multi-agent-control-room/server/orchestrator.mjs --repo "$(pwd)" --desks 3
 # open http://localhost:4477
 ```
 

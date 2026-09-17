@@ -1,4 +1,4 @@
-# Setting up the bullpen
+# Setting up the control room
 
 This turns the floor from a simulation into six real Claude Code sessions you
 can point at a project, watch, and interrupt.
@@ -21,16 +21,16 @@ Clone the repo, open Claude Code **in the project you want worked on**, and past
 this:
 
 ```
-I've cloned https://github.com/Devansh63/agent-bullpen (tell me if you can't find
-it and I'll give you the path). Get it running against this project.
+I've cloned https://github.com/Devansh63/multi-agent-control-room (tell me if you
+can't find it and I'll give you the path). Get it running against this project.
 
 1. Check prerequisites first and stop if anything is missing: `node --version`
    (needs 18+), `claude --version`, and confirm `claude -p "reply with OK"`
    actually returns something.
-2. Read the bullpen's README.md and SETUP.md so you know what you're starting.
+2. Read the repo's README.md and SETUP.md so you know what you're starting.
 3. Start the orchestrator against THIS project, with three desks rather than
    six so we don't hit rate limits on the first run:
-      node <path-to>/agent-bullpen/server/orchestrator.mjs --repo "$(pwd)" --desks 3
+      node <path-to>/multi-agent-control-room/server/orchestrator.mjs --repo "$(pwd)" --desks 3
    Run it in the background, then tell me the URL it printed.
 4. If it fails, read the server output and diagnose. The usual causes are:
    `claude` not on PATH, something already listening on port 4477 (use --port),
@@ -47,7 +47,7 @@ later run other agents here.
 Or just do it yourself:
 
 ```sh
-node /path/to/agent-bullpen/server/orchestrator.mjs --repo "$(pwd)" --desks 3
+node /path/to/multi-agent-control-room/server/orchestrator.mjs --repo "$(pwd)" --desks 3
 # then open http://localhost:4477
 ```
 

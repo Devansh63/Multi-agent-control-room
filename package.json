@@ -1,9 +1,9 @@
 {
-  "name": "agent-bullpen",
+  "name": "multi-agent-control-room",
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "A pixel-art office floor for watching and directing real Claude Code agents.",
+  "description": "A control room for multiple real Claude Code agents: assign, watch, and approve them from a pixel-art office floor.",
   "license": "MIT",
   "engines": { "node": ">=18" },
   "scripts": {
