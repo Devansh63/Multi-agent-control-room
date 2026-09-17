@@ -1,31 +1,23 @@
 # Agent Bullpen
 
-A pixel-art office floor for watching coding agents work. Every running session
-is a character at a desk: the monitor glows green while it writes, cyan while it
-reads, amber while a shell command runs. When an agent needs your approval it
-stands up and raises its hand, and stays frozen there until you answer.
+**Six Claude Code agents, running for real, as an office floor you can watch and interrupt.**
 
-It runs two ways.
+<p align="center">
+  <img src="docs/bullpen.gif" width="720" alt="Pixel-art office floor: four agents typing at desks, one standing up with an amber exclamation mark over its head, then sitting back down once the request is approved.">
+</p>
 
-**As a demo** — open `index.html` in a browser. One file, no build, no
-dependencies, no install. The floor runs on a simulator, so nothing it shows is
-real: the tasks come from a hardcoded list. It's there to answer "would I
-actually want to manage agents this way?"
+Every running session is a character at a desk. The monitor glows green while it
+writes, cyan while it reads, amber while a shell command runs. When an agent hits
+something that needs permission it **stands up and raises its hand** — and that
+session is genuinely blocked until you click Approve or Deny.
 
-**For real** — start the orchestrator, and each desk becomes a live Claude Code
-session working in a project of yours, which you can assign tasks to, watch, and
-interrupt.
+<p align="center">
+  <img src="docs/bullpen.png" width="880" alt="The full interface: the floor on the left, an inspector on the right showing the selected agent's task, live session log and a pending approval for a force-push, and below them a task assignment box and the manager's proposed split into four subtasks.">
+</p>
 
-```sh
-git clone https://github.com/Devansh63/agent-bullpen.git
-node agent-bullpen/server/orchestrator.mjs --repo "$(pwd)" --desks 3
-# open http://localhost:4477
-```
-
-**[SETUP.md](SETUP.md)** has the prerequisites, a prompt you can paste straight
-into Claude Code to get it running, and the warnings that matter — rate limits,
-the shared working tree, and what hasn't been tested yet. Read it before you
-point this at a repo you care about.
+Above: Cog has stopped on `git push --force origin hotfix`. Ada, Byte and Dot
+keep working. The manager has read the repo and proposed a four-way split, each
+subtask on its own files, waiting to be dispatched.
 
 ## Why a floor and not a list
 
@@ -34,19 +26,34 @@ fine and one has been sitting on a permission prompt for six minutes. Spatial
 layout makes that a glance instead of a scan — which is the whole argument for
 the format, and the reason the same idea keeps getting rebuilt.
 
-## What you get
+## Run it
 
-- **Six desks.** Agents walk in, take a free desk, and sit down.
-- **State you can read from across the room.** Screen colour, posture, and a
-  bubble over the head: typing, reading, running, thinking, error, done.
+```sh
+git clone https://github.com/Devansh63/agent-bullpen.git
+node agent-bullpen/server/orchestrator.mjs --repo "$(pwd)" --desks 3
+# open http://localhost:4477
+```
+
+No dependencies, no build, no API key. Workers shell out to the `claude` CLI, so
+they run on the subscription already logged in on your machine.
+
+Or open `index.html` on its own and the floor runs on a simulator, so you can see
+the interface without wiring anything up.
+
+**[SETUP.md](SETUP.md)** has the prerequisites, a prompt you can paste straight
+into Claude Code to get it running, and the warnings that matter — rate limits,
+the shared working tree, and what hasn't been tested yet. Read it before you
+point this at a repo you care about.
+
+## What it does
+
 - **Per-desk task assignment.** Type a brief, pick a desk, hit Assign. A desk
-  keeps its conversation between tasks, so follow-ups land on an agent that
-  remembers what it just did.
+  keeps its conversation between tasks, so "now add tests for that" lands on an
+  agent that remembers what it just did.
 - **A manager that delegates.** Give it a whole project; it explores the repo
   read-only and returns a split, with a self-contained brief per subtask.
   Nothing runs until you press Dispatch, and you can reassign any subtask first.
-- **Raised hands that actually block.** A real permission request parks the
-  worker until you click Approve or Deny.
+- **Raised hands that actually block**, routed to the real session.
 - **Sub-agents.** When a worker spawns its own, it shows up in the log.
 - **A roster list** carrying the same information as text, so the canvas isn't
   the only way to read the floor.
@@ -71,25 +78,22 @@ applyEvent({ ts, sessionId, type, tool, detail })
 | `Stop` | violet check, task complete |
 
 In demo mode a simulator produces that stream. In live mode the orchestrator
-does, and the renderer cannot tell the difference — which is what made the
-second mode a bridge rather than a rewrite.
-
-### The pieces
+does, and the renderer cannot tell the difference — which is what made the second
+mode a bridge rather than a rewrite.
 
 ```
 index.html                  the floor. self-contained, simulated on its own
 server/orchestrator.mjs     desks, sessions, task routing, SSE, the manager
 server/live.js              injected at serve time; swaps the simulator for
                             the live stream and adds the task controls
-hooks/permission-hook.mjs   PermissionRequest hook → the raised hand
+hooks/permission-hook.mjs   PermissionRequest hook -> the raised hand
 ```
 
 **Workers.** Each desk runs `claude -p "<task>" --output-format stream-json`,
 opened with `--session-id` and continued with `--resume`, so the desk has memory.
-Output is newline-delimited JSON, folded into the event vocabulary above. It
-shells out to the `claude` CLI rather than the API, so runs bill against the
-subscription already logged in on the machine — `--bare` would break that, and is
-never passed.
+Output is newline-delimited JSON, folded into the event vocabulary above. Each
+desk also keeps a short event tail, so a browser that connects late or reloads
+still sees how that desk got where it is.
 
 **The manager.** Runs with `--json-schema` against a read-only tool set
 (`Read,Glob,Grep`) in `dontAsk` mode, so it physically cannot edit anything while
