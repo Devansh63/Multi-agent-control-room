@@ -1,0 +1,14 @@
+{
+  "name": "agent-bullpen",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "A pixel-art office floor for watching and directing real Claude Code agents.",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server/orchestrator.mjs",
+    "floor": "node server/orchestrator.mjs --repo ."
+  },
+  "dependencies": {}
+}
