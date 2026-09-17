@@ -4,7 +4,7 @@
  * index.html on its own is a simulation. The orchestrator injects this file,
  * which shuts the simulator down and drives the same floor from real Claude
  * Code sessions instead. It reaches into the page's top-level bindings
- * (agents, paused, selectedId, paint, note, LOOKS, DESKS, ACT, TOOL_ACT) —
+ * (agents, paused, selectedId, paint, note, LOOKS, DESKS, ACT, TOOL_ACT) --
  * classic scripts share one global scope, so they're all in reach.
  */
 (async () => {
@@ -17,7 +17,7 @@
     return;   // no orchestrator: stay a demo
   }
 
-  /* ── take the floor off the simulator ───────────────────────── */
+  /* -- take the floor off the simulator -- */
   paused = true;
   agents.length = 0;
   selectedId = null;
@@ -62,7 +62,7 @@
     if (selectedId === a.id) selectedId = agents[0]?.id ?? null;
   }
 
-  /* ── the event stream ────────────────────────────────── */
+  /* -- the event stream -- */
   const LIVE = { repo: '', repoShort: '', model: '', managerModel: '', plan: null };
 
   function applyDeskState(list) {
@@ -90,6 +90,32 @@
     for (const i of [...byDesk.keys()]) if (!live.has(i)) unseat(i);
     paint();
     renderDeskPicker();
+  }
+
+  /* Backfill a desk's log from the tail the server kept, so a reload doesn't
+     land on an empty ACTIVITY panel. */
+  function replay(info) {
+    if (!info.history?.length) return;
+    const a = byDesk.get(info.i);
+    if (!a || a.log.length) return;
+    for (const e of info.history) {
+      const html = describe(e);
+      if (html) a.log.push({ t: new Date(e.ts), html });
+    }
+  }
+
+  function describe(e) {
+    switch (e.type) {
+      case 'SessionStart':       return `<b>${esc(e.name)}</b> picked up &mdash; ${esc(e.detail || '')}`;
+      case 'PreToolUse':         return `<b>${esc(e.tool)}</b> ${esc(e.detail)}`;
+      case 'SubagentStart':      return `spawned a sub-agent &mdash; <b>${esc(e.detail)}</b>`;
+      case 'Queued':             return `queued &mdash; ${esc(e.detail)}`;
+      case 'PermissionRequest':  return `<b style="color:#f3ac3c">needs approval</b> &mdash; ${esc(e.tool)} ${esc(e.detail)}`;
+      case 'PermissionAnswered': return `<b style="color:${e.detail === 'allow' ? '#57d39c' : '#e4635e'}">${esc(e.detail)}</b>`;
+      case 'Notification':       return `<b style="color:#e4635e">${esc(e.detail)}</b>`;
+      case 'Stop':               return `<b style="color:#b382ea">finished</b> &mdash; ${esc(e.detail)}`;
+      default:                   return '';
+    }
   }
 
   function onEvent(e) {
@@ -159,6 +185,8 @@
       document.querySelector('.brand .sub').textContent =
         `${msg.desks.length} desks · ${msg.model} · ${LIVE.repoShort}`;
       applyDeskState(msg.desks);
+      for (const info of msg.desks) replay(info);
+      paint();
     } else if (msg.kind === 'state') {
       applyDeskState(msg.desks);
     } else if (msg.kind === 'event') {
@@ -171,7 +199,7 @@
     document.querySelector('.ticker .src').innerHTML = '<i style="background:#e4635e"></i> DISCONNECTED';
   };
 
-  /* ── Approve / Deny go to the real session ────────────────── */
+  /* -- Approve / Deny go to the real session -- */
   document.addEventListener('click', async ev => {
     const btn = ev.target.closest('[data-answer]');
     if (!btn) return;
@@ -190,7 +218,7 @@
     });
   }, true);                        // capture phase
 
-  /* ── the ops bar: assign work, run the manager ───────────── */
+  /* -- the ops bar: assign work, run the manager -- */
   const css = document.createElement('style');
   css.textContent = `
     .ops{display:grid;grid-template-columns:1fr 1.25fr;gap:10px;

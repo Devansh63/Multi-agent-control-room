@@ -27,7 +27,7 @@ import { createInterface } from 'node:readline';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 
-/* ─────────────────────── config ─────────────────────── */
+/* ---------------------------- config ---------------------------- */
 const argv = process.argv.slice(2);
 const flag = (name, fallback) => {
   const i = argv.indexOf('--' + name);
@@ -63,7 +63,7 @@ writeFileSync(SETTINGS_PATH, JSON.stringify({
   }
 }, null, 2));
 
-/* ─────────────────────── state ─────────────────────── */
+/* ---------------------------- state ---------------------------- */
 const desks = Array.from({ length: DESK_COUNT }, (_, i) => ({
   i,
   name: NAMES[i],
@@ -75,7 +75,8 @@ const desks = Array.from({ length: DESK_COUNT }, (_, i) => ({
   proc: null,
   ask: null,                // {id, tool, detail, input, decided, decision, reason}
   queue: [],
-  done: 0,
+  history: [],              // last 40 events, so a late or reloaded browser
+  done: 0,                  // can see how this desk got here
   cost: 0,
   startedAt: null,
 }));
@@ -96,13 +97,16 @@ function send(obj) {
   for (const c of clients) { try { c.write(line); } catch { /* client went away */ } }
 }
 function emit(desk, type, detail = '', extra = {}) {
-  send({ kind: 'event', desk: desk.i, name: desk.name, type, detail, ...extra, ts: Date.now() });
+  const evt = { kind: 'event', desk: desk.i, name: desk.name, type, detail, ...extra, ts: Date.now() };
+  desk.history.push(evt);
+  if (desk.history.length > 40) desk.history.shift();
+  send(evt);
 }
 function pushState() {
   send({ kind: 'state', desks: desks.map(publicDesk) });
 }
 
-/* ─────────────────── stream-json → bullpen events ────────────────── */
+/* ------------------- stream-json -> bullpen events ------------------- */
 const trunc = (s, n) => {
   s = String(s ?? '').replace(/\s+/g, ' ').trim();
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
@@ -190,7 +194,7 @@ function handleMessage(desk, msg) {
   }
 }
 
-/* ─────────────────────── running a desk ─────────────────────── */
+/* ------------------------- running a desk ------------------------- */
 function runTask(desk, task) {
   desk.task = task;
   desk.status = 'working';
@@ -283,7 +287,7 @@ function assign(deskIndex, task) {
   return { started: true };
 }
 
-/* ─────────────────────── the manager ─────────────────────── */
+/* --------------------------- the manager --------------------------- */
 const PLAN_SCHEMA = {
   type: 'object',
   properties: {
@@ -364,7 +368,7 @@ function runManager(goal) {
   });
 }
 
-/* ─────────────────────── http ─────────────────────── */
+/* ------------------------------- http ------------------------------- */
 const json = (res, code, body) => {
   res.writeHead(code, { 'content-type': 'application/json' });
   res.end(JSON.stringify(body));
@@ -403,7 +407,7 @@ const server = createServer(async (req, res) => {
       res.write(': connected\n\n');
       res.write(`data: ${JSON.stringify({
         kind: 'hello', repo: REPO, model: MODEL, managerModel: MANAGER_MODEL,
-        desks: desks.map(publicDesk),
+        desks: desks.map(d => ({ ...publicDesk(d), history: d.history })),
       })}\n\n`);
       clients.add(res);
       const ka = setInterval(() => { try { res.write(': ka\n\n'); } catch {} }, 20000);
@@ -514,7 +518,7 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`
   Agent Bullpen
-  ─────────────────────────────────────────────
+  ---------------------------------------------
   floor    http://localhost:${PORT}
   repo     ${REPO}
   desks    ${DESK_COUNT} (${desks.map(d => d.name).join(', ')})
